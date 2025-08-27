@@ -6,6 +6,9 @@ export default {
 					headers: { 'Content-Type': 'text/plain' }
 				});
 
+			case 'DELETE':
+				return new Response(null, { status: 204 });
+
 			default:
 				return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
 					status: 405,
