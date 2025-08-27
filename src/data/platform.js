@@ -1,0 +1,27 @@
+export default [
+    {
+        name: 'Google Scholar',
+        class: 'gscholar',
+        link: 'https://scholar.google.com/citations?user=iLxLbYoAAAAJ',
+    },
+    {
+        name: 'ORCID',
+        class: 'orcid',
+        link: 'https://orcid.org/0000-0002-7478-5555',
+    },
+    {
+        name: 'Scopus',
+        class: 'scopus',
+        link: 'https://www.scopus.com/authid/detail.uri?authorId=57223103509',
+    },
+    {
+        name: 'Figshare',
+        class: 'figshare',
+        link: 'https://figshare.com/authors/Mochammad_Faizal/8925704',
+    },
+    {
+        name: 'ResearchGate',
+        class: 'researchgate',
+        link: 'https://www.researchgate.net/profile/Mochammad_Faizal',
+    },
+];
