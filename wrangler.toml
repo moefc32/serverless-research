@@ -2,6 +2,7 @@ name = "serverless-research"
 main = "src/worker.js"
 workers_dev = true
 compatibility_date = "2025-06-25"
+preview_urls = false
 
 [observability.logs]
 enabled = true
