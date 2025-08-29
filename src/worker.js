@@ -1,3 +1,8 @@
+const application = 'Mfc API';
+const contentTypeJson = {
+	'Content-Type': 'application/json',
+};
+
 async function apiFetch(url, options = {}) {
 	const defaultHeaders = {
 		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Win11) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36',
@@ -18,33 +23,31 @@ export default {
 
 					if (!medium_id || !orcid_id) {
 						return new Response(JSON.stringify({
-							error: 'Missing environment variable(s)',
+							application,
+							message: 'Missing environment variable(s)!',
 						}), {
 							status: 500,
-							headers: { 'Content-Type': 'application/json' },
+							headers: contentTypeJson,
 						});
 					}
 
-					const response = await apiFetch(`https://pub.orcid.org/v3.0/${orcid_id}/activities`);
+					const response = await apiFetch(
+						`https://pub.orcid.org/v3.0/${orcid_id}/activities`);
 
 					if (!response.ok) {
 						const text = await response.text();
-
-						return new Response(JSON.stringify({
-							error: `ORCID API returned ${response.status}: ${text}`,
-						}), {
-							status: response.status,
-							headers: { 'Content-Type': 'application/json' },
-						});
+						console.error(`ORCID API returned ${behanceResponse.status}: ${text}`);
 					}
 
 					const data = await response.json();
 					const result = {
 						education: [],
 						publication: [],
+						platform: [],
+						medium: {},
 					};
 
-					data.educations['affiliation-group'].flatMap((group) =>
+					data?.educations['affiliation-group'].flatMap((group) =>
 						group.summaries.map(s => {
 							const edu = s['education-summary'];
 
@@ -58,7 +61,7 @@ export default {
 						})
 					);
 
-					data.works.group.flatMap((group) =>
+					data?.works.group.flatMap((group) =>
 						group['work-summary'].map(w => {
 							result.publication.push({
 								title: w.title.title.value,
@@ -70,16 +73,19 @@ export default {
 					);
 
 					return new Response(JSON.stringify({
+						application,
+						message: 'Fetch data success.',
 						data: result,
 					}), {
-						headers: { 'Content-Type': 'application/json' },
+						headers: contentTypeJson,
 					});
 				} catch (e) {
 					return new Response(JSON.stringify({
-						error: e.message,
+						application,
+						message: e.message,
 					}), {
 						status: 500,
-						headers: { 'Content-Type': 'application/json' },
+						headers: contentTypeJson,
 					});
 				}
 
@@ -87,9 +93,12 @@ export default {
 				return new Response(null, { status: 204 });
 
 			default:
-				return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+				return new Response(JSON.stringify({
+					application,
+					message: 'Method not allowed!'
+				}), {
 					status: 405,
-					headers: { 'Content-Type': 'application/json' },
+					headers: contentTypeJson,
 				});
 		}
 	},
