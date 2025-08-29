@@ -1,13 +1,16 @@
 {
 	"name": "serverless-research",
-    "private": true,
-    "version": "0.0.1",
-    "type": "module",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
 	"scripts": {
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy"
 	},
 	"devDependencies": {
 		"wrangler": "^4.33.0"
+	},
+	"dependencies": {
+		"fast-xml-parser": "^5.2.5"
 	}
 }

@@ -1,3 +1,6 @@
+import { XMLParser } from 'fast-xml-parser';
+import platform from './platform.json' assert { type: 'json' };
+
 const application = 'Mfc API';
 const contentTypeJson = {
 	'Content-Type': 'application/json',
@@ -31,46 +34,74 @@ export default {
 						});
 					}
 
-					const response = await apiFetch(
+					const orcidResponse = await apiFetch(
 						`https://pub.orcid.org/v3.0/${orcid_id}/activities`);
+					const mediumResponse = await apiFetch(
+						`https://medium.com/feed/@${medium_id}`);
 
-					if (!response.ok) {
-						const text = await response.text();
-						console.error(`ORCID API returned ${behanceResponse.status}: ${text}`);
-					}
-
-					const data = await response.json();
 					const result = {
 						education: [],
 						publication: [],
-						platform: [],
-						medium: {},
+						platform,
+						medium: {
+							posts: [],
+							url: `https://medium.com/${medium_id}`
+						},
 					};
 
-					data?.educations['affiliation-group'].flatMap((group) =>
-						group.summaries.map(s => {
-							const edu = s['education-summary'];
+					if (orcidResponse.ok) {
+						const data = await orcidResponse.json();
 
-							result.education.push({
-								startYear: edu['start-date'].year?.value || '',
-								endYear: edu['end-date'].year?.value || '',
-								title: edu['role-title'],
-								department: edu['department-name'],
-								university: edu.organization.name,
-							});
-						})
-					);
+						data?.educations['affiliation-group'].flatMap((group) =>
+							group.summaries.map(s => {
+								const edu = s['education-summary'];
 
-					data?.works.group.flatMap((group) =>
-						group['work-summary'].map(w => {
-							result.publication.push({
-								title: w.title.title.value,
-								journal: w['journal-title']?.value || null,
-								year: w['publication-date'].year?.value || '',
-								url: w.url?.value || null,
-							});
-						})
-					);
+								result.education.push({
+									startYear: edu['start-date'].year?.value || '',
+									endYear: edu['end-date'].year?.value || '',
+									title: edu['role-title'],
+									department: edu['department-name'],
+									university: edu.organization.name,
+								});
+							})
+						);
+
+						data?.works.group.flatMap((group) =>
+							group['work-summary'].map(w => {
+								result.publication.push({
+									title: w.title.title.value,
+									journal: w['journal-title']?.value || null,
+									year: w['publication-date'].year?.value || '',
+									url: w.url?.value || null,
+								});
+							})
+						);
+					} else {
+						const text = await orcidResponse.text();
+						console.error(`ORCID API returned ${behanceResponse.status}: ${text}`);
+					}
+
+					if (mediumResponse.ok) {
+						const xml = await mediumResponse.text();
+						const parser = new XMLParser();
+						const data = parser.parse(xml);
+
+						result.medium.posts = (data.rss.channel.item.slice(0, 12) || []).map((post) => {
+							const content = post['content:encoded'] || ''
+							const match = content.match(/<img[^>]*src="([^"]+)"/)
+							const postImage = match ? match[1] : null
+
+							return {
+								title: post.title,
+								date: post.pubDate,
+								url: post.link.split('?')[0],
+								image: postImage
+							}
+						});
+					} else {
+						const text = await mediumResponse.text();
+						console.error(`Medium API returned ${mediumResponse.status}: ${text}`);
+					}
 
 					return new Response(JSON.stringify({
 						application,
