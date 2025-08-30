@@ -1,11 +1,12 @@
 import { XMLParser } from 'fast-xml-parser';
-import platform from './platform.json' assert { type: 'json' };
+import corsHeaders from './corsHeaders.js';
+import responseHelper from './responseHelper.js';
 
-const application = 'Mfc API';
+import platform from './data/platform.js';
+
 const cache = caches.default;
 const cacheDuration = 60 * 60 * 24;
 const cacheControl = { 'Cache-Control': `public, max-age=${cacheDuration}` };
-const contentTypeJson = { 'Content-Type': 'application/json' };
 
 async function apiFetch(url, options = {}) {
 	const defaultHeaders = {
@@ -20,28 +21,27 @@ async function apiFetch(url, options = {}) {
 export default {
 	async fetch(request, env, ctx) {
 		switch (request.method) {
+			case 'OPTIONS':
+				return new Response(null, { headers: corsHeaders });
+
 			case 'GET':
 				try {
-                    const cachedResponse = await cache.match(request);
+					const cachedResponse = await cache.match(request);
 
-                    if (cachedResponse) {
-                        const age = cachedResponse.headers.get('CF-Cache-Age');
-                        if (age !== null && parseInt(age) < cacheDuration) {
-                            return cachedResponse;
-                        }
-                    }
+					if (cachedResponse) {
+						const age = cachedResponse.headers.get('CF-Cache-Age');
+						if (age !== null && parseInt(age) < cacheDuration) {
+							return cachedResponse;
+						}
+					}
 
 					const medium_id = env.CONFIG_MEDIUM_ID;
 					const orcid_id = env.CONFIG_ORCID_ID;
 
 					if (!medium_id || !orcid_id) {
-						return new Response(JSON.stringify({
-							application,
+						return responseHelper({
 							message: 'Missing environment variable(s)!',
-						}), {
-							status: 500,
-							headers: contentTypeJson,
-						});
+						}, 500);
 					}
 
 					const orcidResponse = await apiFetch(
@@ -113,41 +113,29 @@ export default {
 						console.error(`Medium API failed: ${text}`);
 					}
 
-                    const cachedData = new Response(JSON.stringify({
-                        application,
-                        message: 'Fetch data success.',
-                        data: result,
-                    }), {
-                        headers: {
-                            ...contentTypeJson,
-                            ...cacheControl,
-                        }
-                    });
-
-                    ctx.waitUntil(cache.put(request, cachedData.clone()));
-                    return cachedData;
-				} catch (e) {
-					return new Response(JSON.stringify({
-						application,
-						message: e.message,
-					}), {
-						status: 500,
-						headers: contentTypeJson,
+					const cachedData = responseHelper({
+						message: 'Fetch data success.',
+						data: result,
+					}, 200, {
+						...cacheControl,
 					});
+
+					ctx.waitUntil(cache.put(request, cachedData.clone()));
+					return cachedData;
+				} catch (e) {
+					return responseHelper({
+						message: e.message,
+					}, 500);
 				}
 
 			case 'DELETE':
-                await cache.delete(request);
-				return new Response(null, { status: 204 });
+				await cache.delete(request);
+				return responseHelper(null, 204);
 
 			default:
-				return new Response(JSON.stringify({
-					application,
+				return responseHelper({
 					message: 'Method not allowed!'
-				}), {
-					status: 405,
-					headers: contentTypeJson,
-				});
+				}, 405);
 		}
 	},
 };
