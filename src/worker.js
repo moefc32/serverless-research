@@ -2,9 +2,10 @@ import { XMLParser } from 'fast-xml-parser';
 import platform from './platform.json' assert { type: 'json' };
 
 const application = 'Mfc API';
-const contentTypeJson = {
-	'Content-Type': 'application/json',
-};
+const cache = caches.default;
+const cacheDuration = 60 * 60 * 24;
+const cacheControl = { 'Cache-Control': `public, max-age=${cacheDuration}` };
+const contentTypeJson = { 'Content-Type': 'application/json' };
 
 async function apiFetch(url, options = {}) {
 	const defaultHeaders = {
@@ -21,6 +22,15 @@ export default {
 		switch (request.method) {
 			case 'GET':
 				try {
+                    const cachedResponse = await cache.match(request);
+
+                    if (cachedResponse) {
+                        const age = cachedResponse.headers.get('CF-Cache-Age');
+                        if (age !== null && parseInt(age) < cacheDuration) {
+                            return cachedResponse;
+                        }
+                    }
+
 					const medium_id = env.CONFIG_MEDIUM_ID;
 					const orcid_id = env.CONFIG_ORCID_ID;
 
@@ -49,7 +59,7 @@ export default {
 						},
 					};
 
-					if (orcidResponse.ok) {
+					if (orcidResponse?.ok) {
 						const data = await orcidResponse.json();
 
 						data?.educations['affiliation-group'].flatMap((group) =>
@@ -78,10 +88,10 @@ export default {
 						);
 					} else {
 						const text = await orcidResponse.text();
-						console.error(`ORCID API returned ${behanceResponse.status}: ${text}`);
+						console.error(`ORCID API failed: ${text}`);
 					}
 
-					if (mediumResponse.ok) {
+					if (mediumResponse?.ok) {
 						const xml = await mediumResponse.text();
 						const parser = new XMLParser();
 						const data = parser.parse(xml);
@@ -100,16 +110,22 @@ export default {
 						});
 					} else {
 						const text = await mediumResponse.text();
-						console.error(`Medium API returned ${mediumResponse.status}: ${text}`);
+						console.error(`Medium API failed: ${text}`);
 					}
 
-					return new Response(JSON.stringify({
-						application,
-						message: 'Fetch data success.',
-						data: result,
-					}), {
-						headers: contentTypeJson,
-					});
+                    const cachedData = new Response(JSON.stringify({
+                        application,
+                        message: 'Fetch data success.',
+                        data: result,
+                    }), {
+                        headers: {
+                            ...contentTypeJson,
+                            ...cacheControl,
+                        }
+                    });
+
+                    ctx.waitUntil(cache.put(request, cachedData.clone()));
+                    return cachedData;
 				} catch (e) {
 					return new Response(JSON.stringify({
 						application,
@@ -121,6 +137,7 @@ export default {
 				}
 
 			case 'DELETE':
+                await cache.delete(request);
 				return new Response(null, { status: 204 });
 
 			default:
