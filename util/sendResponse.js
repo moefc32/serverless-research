@@ -1,4 +1,4 @@
-import corsHeaders from './corsHeaders.js';
+import corsHeaders from '../src/corsHeaders.js';
 
 export default function (payload, status = 200, extraHeaders = {}) {
     const headers = {

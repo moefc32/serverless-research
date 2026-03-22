@@ -9,6 +9,6 @@
 	},
 	"dependencies": {
 		"fast-xml-parser": "^5.5.8",
-		"hono": "^4.12.8"
+		"hono": "^4.12.9"
 	}
 }
