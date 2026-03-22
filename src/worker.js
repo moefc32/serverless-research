@@ -10,19 +10,19 @@ import platform from './data/platform.js';
 const app = new Hono();
 
 const cache = caches.default;
-const cacheDuration = 60 * 60 * 12;
+const baseCacheDuration = 60 * 60 * 24;
 const cacheControl = {
-    'Cache-Control': `public, max-age=${cacheDuration}, stale-while-revalidate=${cacheDuration}`
+    'Cache-Control': `public, max-age=${baseCacheDuration}, stale-while-revalidate=${baseCacheDuration}`
 }
 const cacheKey = new Request('https://internal/cache/serverless-research', {
     method: 'GET',
 });
 
-app.options('*', (c) => {
+app.options('/', (c) => {
     return new Response(null, { headers: corsHeaders });
 });
 
-app.get('*', async (c) => {
+app.get('/', async (c) => {
     const env = c.env;
     const ctx = c.executionCtx;
 
@@ -56,9 +56,11 @@ app.get('*', async (c) => {
         const response = await Promise.allSettled([
             (async () => {
                 try {
-                    const cached = await env.KV_CACHE.get(`research:orcid`);
+                    const cached = await env.KV_CACHE
+                        .get(`research:orcid`, { type: 'json' });
+
                     if (cached) {
-                        Object.assign(result, JSON.parse(cached));
+                        Object.assign(result, cached);
                         return;
                     }
 
@@ -106,7 +108,7 @@ app.get('*', async (c) => {
 
                     await env.KV_CACHE.put(`research:orcid`,
                         JSON.stringify(formattedData), {
-                        expirationTtl: cacheDuration,
+                        expirationTtl: baseCacheDuration * 28,
                     });
 
                     Object.assign(result, formattedData);
@@ -117,8 +119,13 @@ app.get('*', async (c) => {
             })(),
             (async () => {
                 try {
-                    const cached = await env.KV_CACHE.get(`research:medium`);
-                    if (cached) return result.medium.posts = JSON.parse(cached);
+                    const cached = await env.KV_CACHE
+                        .get(`research:medium`, { type: 'json' });
+
+                    if (cached) {
+                        result.medium.posts = cached;
+                        return;
+                    }
 
                     const mediumResponse = await fetch(
                         `https://medium.com/feed/${medium_id}`);
@@ -151,7 +158,7 @@ app.get('*', async (c) => {
 
                     await env.KV_CACHE.put(`research:medium`,
                         JSON.stringify(formattedData), {
-                        expirationTtl: cacheDuration,
+                        expirationTtl: baseCacheDuration * 14,
                     });
 
                     result.medium.posts = formattedData;
@@ -181,7 +188,7 @@ app.get('*', async (c) => {
     }
 });
 
-app.delete('*', async (c) => {
+app.delete('/', async (c) => {
     await cache.delete(cacheKey);
     return responseHelper(null, 204);
 });
@@ -192,4 +199,10 @@ app.all('*', () => {
     }, 405);
 });
 
-export default app;
+export default {
+    fetch: app.fetch,
+    async scheduled(evt, env, ctx) {
+        await app.request('/', {}, env);
+        console.log('Cron job processed.');
+    },
+};
