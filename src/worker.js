@@ -48,7 +48,7 @@ app.get('/', async (c) => {
             platform,
             medium: {
                 posts: [],
-                url: `https://medium.com/${medium_id}`
+                url: `https://medium.com/${medium_id}`,
             },
         }
 
@@ -116,6 +116,7 @@ app.get('/', async (c) => {
                     return null;
                 }
             })(),
+
             (async () => {
                 try {
                     const cached = await env.KV_CACHE
@@ -165,7 +166,7 @@ app.get('/', async (c) => {
                     console.error(e);
                     return null;
                 }
-            })(),
+            })()
         ]);
 
         const cachedData = sendResponse({

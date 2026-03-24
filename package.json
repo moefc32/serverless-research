@@ -8,7 +8,7 @@
 		"deploy": "wrangler deploy"
 	},
 	"dependencies": {
-		"fast-xml-parser": "^5.5.8",
-		"hono": "^4.12.9"
+		"fast-xml-parser": "^5.5.10",
+		"hono": "^4.12.10"
 	}
 }
