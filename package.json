@@ -7,8 +7,18 @@
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy"
 	},
+	"devDependencies": {
+		"wrangler": "^4.81.0"
+	},
 	"dependencies": {
-		"fast-xml-parser": "^5.5.10",
-		"hono": "^4.12.10"
+		"fast-xml-parser": "^5.5.11",
+		"hono": "^4.12.12"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"sharp",
+			"workerd"
+		]
 	}
 }

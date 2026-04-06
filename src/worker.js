@@ -5,17 +5,14 @@ import corsHeaders from './corsHeaders.js';
 import {
     baseDuration,
     cacheControl,
-    getCacheKey,
 } from '../util/cache.js';
-import fetch from '../util/fetch.js'
+import fetch from '../util/fetch.js';
 import sendResponse from '../util/sendResponse.js';
 
 import platform from '../data/platform.js';
 
 const app = new Hono();
-
 const cache = caches.default;
-const cacheKey = getCacheKey('https://internal/cache/serverless-research');
 
 app.options('/', (c) => {
     return new Response(null, { headers: corsHeaders });
@@ -24,6 +21,9 @@ app.options('/', (c) => {
 app.get('/', async (c) => {
     const env = c.env;
     const ctx = c.executionCtx;
+    const cacheKey = new Request(c.req.url, {
+        method: 'GET',
+    });
 
     try {
         if (c.req.query('refresh') === 'true') {
@@ -151,9 +151,9 @@ app.get('/', async (c) => {
                             return {
                                 title: post.title,
                                 date: post.pubDate,
-                                url: post.link.split('?')[0],
                                 image: postImage,
-                            }
+                                url: post.link.split('?')[0],
+                            };
                         });
 
                     await env.KV_CACHE.put(`research:medium`,
@@ -189,6 +189,10 @@ app.get('/', async (c) => {
 });
 
 app.delete('/', async (c) => {
+    const cacheKey = new Request(c.req.url, {
+        method: 'GET',
+    });
+
     await cache.delete(cacheKey);
     return sendResponse(null, 204);
 });
@@ -202,7 +206,24 @@ app.all('*', () => {
 export default {
     fetch: app.fetch,
     async scheduled(evt, env, ctx) {
-        await app.request('/', {}, env);
-        console.log('Cron job processed.');
+        try {
+            const url = new URL('/', env.BASE_URL);
+            const hour = new Date(evt.scheduledTime).getUTCHours();
+            if (hour === 4) url.searchParams.set('refresh', 'true');
+
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Cloudflare-Cron-Job',
+                },
+            });
+
+            if (response.ok) {
+                console.log('[Cron] Edge cache warmed successfully.');
+            } else {
+                console.error('[Cron] Warming failed:', response.status);
+            }
+        } catch (e) {
+            console.error(`[Cron] Execution error: ${e.message}`);
+        }
     },
 };
