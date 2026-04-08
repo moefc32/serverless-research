@@ -50,7 +50,7 @@ app.get('/', async (c) => {
                 posts: [],
                 url: `https://medium.com/${medium_id}`,
             },
-        }
+        };
 
         const response = await Promise.allSettled([
             (async () => {
@@ -150,7 +150,7 @@ app.get('/', async (c) => {
 
                             return {
                                 title: post.title,
-                                date: post.pubDate,
+                                date: new Date(post.pubDate).toISOString(),
                                 image: postImage,
                                 url: post.link.split('?')[0],
                             };

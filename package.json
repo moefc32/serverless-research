@@ -8,11 +8,11 @@
 		"deploy": "wrangler deploy"
 	},
 	"devDependencies": {
-		"wrangler": "^4.81.0"
+		"wrangler": "^4.87.0"
 	},
 	"dependencies": {
-		"fast-xml-parser": "^5.5.11",
-		"hono": "^4.12.12"
+		"fast-xml-parser": "^5.7.3",
+		"hono": "^4.12.17"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
