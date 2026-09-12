@@ -33,10 +33,9 @@ app.get('/', async (c) => {
             if (cachedResponse) return cachedResponse;
         }
 
-        const medium_id = env.CONFIG_MEDIUM_ID;
         const orcid_id = env.CONFIG_ORCID_ID;
 
-        if (!medium_id || !orcid_id) {
+        if (!orcid_id) {
             return sendResponse({
                 message: 'Missing environment variable(s)!',
             }, 500);
@@ -46,17 +45,13 @@ app.get('/', async (c) => {
             education: [],
             publication: [],
             platform,
-            medium: {
-                posts: [],
-                url: `https://medium.com/${medium_id}`,
-            },
         };
 
         const response = await Promise.allSettled([
             (async () => {
                 try {
                     const cached = await env.KV_CACHE
-                        .get(`research:orcid`, { type: 'json' });
+                        .get('research:orcid', { type: 'json' });
 
                     if (cached) {
                         Object.assign(result, cached);
@@ -105,7 +100,7 @@ app.get('/', async (c) => {
                         })
                     );
 
-                    await env.KV_CACHE.put(`research:orcid`,
+                    await env.KV_CACHE.put('research:orcid',
                         JSON.stringify(formattedData), {
                         expirationTtl: baseDuration * 28,
                     });
@@ -116,57 +111,6 @@ app.get('/', async (c) => {
                     return null;
                 }
             })(),
-
-            (async () => {
-                try {
-                    const cached = await env.KV_CACHE
-                        .get(`research:medium`, { type: 'json' });
-
-                    if (cached) {
-                        result.medium.posts = cached;
-                        return;
-                    }
-
-                    const mediumResponse = await fetch(
-                        `https://medium.com/feed/${medium_id}`);
-
-                    if (!mediumResponse?.ok) {
-                        const code = mediumResponse.status;
-                        const text = await mediumResponse.text();
-
-                        throw new Error(`Medium API failed (${code}): ${text}`);
-                    }
-
-                    const xml = await mediumResponse.text();
-                    const parser = new XMLParser();
-                    const data = parser.parse(xml);
-
-                    const formattedData = ([].concat(data.rss.channel.item || [])
-                        .slice(0, 12) || [])
-                        .map((post) => {
-                            const content = post['content:encoded'] || '';
-                            const match = content.match(/<img[^>]*src="([^"]+)"/);
-                            const postImage = match ? match[1] : null;
-
-                            return {
-                                title: post.title,
-                                date: new Date(post.pubDate).toISOString(),
-                                image: postImage,
-                                url: post.link.split('?')[0],
-                            };
-                        });
-
-                    await env.KV_CACHE.put(`research:medium`,
-                        JSON.stringify(formattedData), {
-                        expirationTtl: baseDuration * 14,
-                    });
-
-                    result.medium.posts = formattedData;
-                } catch (e) {
-                    console.error(e);
-                    return null;
-                }
-            })()
         ]);
 
         const cachedData = sendResponse({
@@ -189,11 +133,17 @@ app.get('/', async (c) => {
 });
 
 app.delete('/', async (c) => {
+    const env = c.env;
+    const kvKeys = ['research:orcid'];
     const cacheKey = new Request(c.req.url, {
         method: 'GET',
     });
 
-    await cache.delete(cacheKey);
+    await Promise.allSettled([
+        cache.delete(cacheKey),
+        ...kvKeys.map((item) => env.KV_CACHE.delete(item))
+    ]);
+
     return sendResponse(null, 204);
 });
 
